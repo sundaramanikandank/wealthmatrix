@@ -7,6 +7,8 @@ import {
 import { fetchOptionChain, fetchExpiries } from '../api/market'
 import type { ChainData } from '../store/strategyStore'
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:4000'
+
 type Instrument = 'NIFTY' | 'BANKNIFTY'
 
 interface OIHistoryPoint {
@@ -53,7 +55,7 @@ export default function OICharts() {
       try {
         const [chain, history] = await Promise.all([
           fetchOptionChain(instrument, selectedExpiry),
-          fetch(`http://localhost:4000/api/market/oi-history?symbol=${instrument}&expiry=${selectedExpiry}`)
+          fetch(`${API_BASE_URL}/api/market/oi-history?symbol=${instrument}&expiry=${selectedExpiry}`)
             .then(r => r.json())
             .then(d => d.data as OIHistoryPoint[]),
         ])

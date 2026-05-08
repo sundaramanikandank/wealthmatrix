@@ -6,6 +6,8 @@ import {
 import { fetchOptionChain, fetchExpiries } from '../api/market'
 import type { ChainData } from '../store/strategyStore'
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:4000'
+
 type Instrument = 'NIFTY' | 'BANKNIFTY'
 
 interface IVHistoryPoint {
@@ -51,7 +53,7 @@ export default function IVCharts() {
       try {
         const [chain, history] = await Promise.all([
           fetchOptionChain(instrument, selectedExpiry),
-          fetch(`http://localhost:4000/api/market/iv-history?symbol=${instrument}&expiry=${selectedExpiry}`)
+          fetch(`${API_BASE_URL}/api/market/iv-history?symbol=${instrument}&expiry=${selectedExpiry}`)
             .then(r => r.json())
             .then(d => d.data as IVHistoryPoint[]),
         ])

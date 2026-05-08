@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:4000'
+
 type Tab = 'strategies' | 'paper' | 'history'
 
 interface Strategy {
@@ -53,7 +55,7 @@ export default function Portfolio() {
     if (!session) return
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:4000/api/portfolio/strategies', {
+      const response = await fetch(`${API_BASE_URL}/api/portfolio/strategies`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       })
       const result = await response.json()
@@ -74,7 +76,7 @@ export default function Portfolio() {
     if (!session) return
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:4000/api/portfolio/paper?status=open', {
+      const response = await fetch(`${API_BASE_URL}/api/portfolio/paper?status=open`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       })
       const result = await response.json()
@@ -93,7 +95,7 @@ export default function Portfolio() {
     if (!session) return
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:4000/api/portfolio/paper?status=closed', {
+      const response = await fetch(`${API_BASE_URL}/api/portfolio/paper?status=closed`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       })
       const result = await response.json()
@@ -113,7 +115,7 @@ export default function Portfolio() {
     if (!session) return
     
     try {
-      const response = await fetch(`http://localhost:4000/api/portfolio/strategies/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/portfolio/strategies/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       })
@@ -139,7 +141,7 @@ export default function Portfolio() {
     if (!session || !selectedStrategy || !entryPremium) return
     
     try {
-      const response = await fetch('http://localhost:4000/api/portfolio/paper', {
+      const response = await fetch(`${API_BASE_URL}/api/portfolio/paper`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -171,7 +173,7 @@ export default function Portfolio() {
     if (!session) return
     
     try {
-      const response = await fetch(`http://localhost:4000/api/portfolio/paper/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/portfolio/paper/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
