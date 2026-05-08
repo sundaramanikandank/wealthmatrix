@@ -231,7 +231,10 @@ export default function IVCharts() {
                   <Tooltip
                     contentStyle={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6 }}
                     labelStyle={{ color: 'var(--text)', fontWeight: 600 }}
-                    formatter={(value: number | null) => value !== null ? [`${value.toFixed(2)}%`] : ['—']}
+                    formatter={(value) => {
+                      const num = typeof value === 'number' ? value : null
+                      return num !== null ? [`${num.toFixed(2)}%`] : ['—']
+                    }}
                   />
                   {chainData.atmStrike && (
                     <ReferenceLine
