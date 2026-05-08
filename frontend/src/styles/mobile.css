@@ -1,0 +1,135 @@
+/* Mobile Responsive Styles */
+
+/* Base responsive utilities */
+@media (max-width: 768px) {
+  /* Tables: enable horizontal scroll */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* Forms: full width, touch-friendly */
+  input,
+  select,
+  textarea,
+  button {
+    min-height: 48px;
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  select,
+  textarea {
+    width: 100%;
+    padding: 12px;
+  }
+
+  /* Typography: prevent overflow */
+  h1, h2, h3, h4, h5, h6, p {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  /* Readable line lengths */
+  p {
+    max-width: 100%;
+    line-height: 1.6;
+  }
+
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Padding adjustments */
+  main {
+    padding: 0 !important;
+  }
+
+  /* Modal adjustments */
+  [style*="position: fixed"] {
+    max-width: 100vw;
+  }
+}
+
+/* Small mobile (375px) */
+@media (max-width: 480px) {
+  /* Reduce font sizes slightly */
+  body {
+    font-size: 14px;
+  }
+
+  h1 {
+    font-size: 1.5rem !important;
+  }
+
+  h2 {
+    font-size: 1.25rem !important;
+  }
+
+  h3 {
+    font-size: 1.1rem !important;
+  }
+
+  /* Tighter spacing */
+  [style*="padding"] {
+    padding: 12px !important;
+  }
+
+  /* Stack buttons vertically */
+  button + button {
+    margin-top: 8px;
+  }
+}
+
+/* Tablet (768px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Slightly reduce spacing */
+  [style*="gap: 2rem"] {
+    gap: 1rem !important;
+  }
+}
+
+/* Touch-friendly interactive elements */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase tap targets */
+  a, button, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Remove hover effects on touch devices */
+  *:hover {
+    opacity: 1 !important;
+  }
+}
+
+/* Landscape mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  /* Reduce vertical padding */
+  [style*="padding-top"],
+  [style*="padding-bottom"] {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  nav,
+  button,
+  [role="button"] {
+    display: none !important;
+  }
+
+  * {
+    color: #000 !important;
+    background: #fff !important;
+  }
+}
