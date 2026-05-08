@@ -5,9 +5,12 @@ import type { Instrument, StoreLeg, OptionType, Side, ChainData, SpotData } from
 import { useAuthStore }             from '../store/authStore'
 import { saveStrategy }             from '../api/market'
 import PayoffChart                  from '../components/PayoffChart'
+import StrategyCard                 from '../components/StrategyCard'
+import StrategyModal                from '../components/StrategyModal'
 import { calcGreeks }               from '../utils/greeks'
 import { calcPayoffRange, calcBreakevens, calcMaxProfit, calcMaxLoss } from '../utils/payoff'
 import type { Leg as PayoffLeg }    from '../utils/payoff'
+import { getStrategiesByCategory, calculateATM, type Strategy } from '../data/strategies'
 
 type ActiveTab = 'build' | 'strategies' | 'chain'
 
@@ -161,12 +164,22 @@ function InstrumentSelector({ active, onChange }: { active: Instrument; onChange
   )
 }
 
-function SpotCard({ instrument, spotData, loading }: { instrument: Instrument; spotData: SpotData | null; loading: boolean }) {
-  if (loading || !spotData) {
+function SpotCard({ instrument, spotData, loading, hasLoaded }: { instrument: Instrument; spotData: SpotData | null; loading: boolean; hasLoaded: boolean }) {
+  // Only show loading state on initial load, not during background refreshes
+  if (!hasLoaded && (loading || !spotData)) {
     return (
       <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--text3)', animation: 'pulse 1.2s infinite' }} />
         <span style={{ color: 'var(--text3)', fontSize: '0.82rem' }}>Fetching spot…</span>
+      </div>
+    )
+  }
+  
+  // If we've loaded once but don't have data yet, show placeholder
+  if (!spotData) {
+    return (
+      <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ color: 'var(--text3)', fontSize: '0.82rem' }}>No spot data available</span>
       </div>
     )
   }
@@ -296,17 +309,62 @@ function BuildTab({
   )
 }
 
-function StrategiesGrid({ onSelect }: { onSelect: (name: string) => void }) {
+function StrategiesGrid({ onSelect }: { onSelect: (strategy: Strategy) => void }) {
+  type StrategyCategory = 'bullish' | 'bearish' | 'neutral'
+  const [activeCategory, setActiveCategory] = useState<StrategyCategory>('bullish')
+
+  const categories: Array<{ key: StrategyCategory; label: string; emoji: string; color: string }> = [
+    { key: 'bullish', label: 'Bullish', emoji: '🟢', color: 'var(--green)' },
+    { key: 'bearish', label: 'Bearish', emoji: '🔴', color: 'var(--red)' },
+    { key: 'neutral', label: 'Non-Directional', emoji: '🟡', color: 'var(--yellow)' },
+  ]
+
+  const strategies = getStrategiesByCategory(activeCategory)
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-      {PRESET_NAMES.map((name) => (
-        <button key={name} onClick={() => onSelect(name)} title={name} style={{
-          padding: '7px 4px', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600,
-          cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface2)',
-          color: 'var(--text2)', textAlign: 'center', lineHeight: 1.3, transition: 'all 0.12s',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>{name}</button>
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Category Tabs */}
+      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
+        {categories.map(({ key, label, emoji, color }) => (
+          <button
+            key={key}
+            onClick={() => setActiveCategory(key)}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: activeCategory === key ? `2px solid ${color}` : '2px solid transparent',
+              color: activeCategory === key ? 'var(--text)' : 'var(--text3)',
+              fontSize: '0.75rem',
+              fontFamily: 'Syne, sans-serif',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            {emoji} {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Strategy Cards Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: 10,
+        maxHeight: 400,
+        overflowY: 'auto',
+        paddingRight: 4,
+      }}>
+        {strategies.map((strategy) => (
+          <StrategyCard
+            key={strategy.id}
+            strategy={strategy}
+            onClick={() => onSelect(strategy)}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -431,7 +489,7 @@ export default function StrategyBuilder() {
   const { user, session } = useAuthStore()
   const {
     instrument, spotData, expiriesData, selectedExpiry, chainData, legs,
-    isLoading, error, clearError, setInstrument, setExpiry, addLeg, removeLeg, clearLegs, setLegs,
+    isLoading, hasLoadedOnce, error, clearError, setInstrument, setExpiry, addLeg, removeLeg, clearLegs, setLegs,
     fetchSpotAndExpiries,
   } = useStrategyStore()
 
@@ -443,6 +501,7 @@ export default function StrategyBuilder() {
   const [formIV,     setFormIV]     = useState(0.15)
   const [formSide,   setFormSide]   = useState<Side>('BUY')
   const [saveModal,  setSaveModal]  = useState({ open: false, name: '', saving: false, saveError: null as string | null })
+  const [strategyModal, setStrategyModal] = useState<{ open: boolean; strategy: Strategy | null }>({ open: false, strategy: null })
 
   // Load strategy from URL params (from Portfolio)
   useEffect(() => {
@@ -544,14 +603,23 @@ export default function StrategyBuilder() {
     }, { delta: 0, gamma: 0, theta: 0, vega: 0 })
   }, [legs, spot, lotSize])
 
-  function applyPreset(name: string) {
-    if (!spot) return
-    const template = STRATEGY_TEMPLATES[name]
-    if (!template) return
-    const atm = getATM(spot, instrument)
-    const getLTP: LTPGetter = (strike, type) => getLTPFromChain(chainData, strike, type)
-    const exp = selectedExpiry || allExpiries[0] || ''
-    setLegs(template(atm, step, exp, getLTP))
+  function applyPreset(strategy: Strategy) {
+    setStrategyModal({ open: true, strategy })
+  }
+
+  function handleLoadStrategy(legs: Array<{ type: OptionType; strike: number; expiry: string; lots: number; ltp: number; side: Side }>) {
+    // Don't clear existing legs - add new ones
+    legs.forEach(leg => {
+      addLeg({
+        type: leg.type,
+        strike: leg.strike,
+        expiry: leg.expiry,
+        lots: leg.lots,
+        ltp: leg.ltp,
+        side: leg.side,
+        iv: 0.15, // Default IV
+      })
+    })
   }
 
   function handleAddLeg() {
@@ -579,7 +647,17 @@ export default function StrategyBuilder() {
       // Show success message
       alert('Strategy saved successfully!')
     } catch (e) {
-      setSaveModal((m) => ({ ...m, saving: false, saveError: e instanceof Error ? e.message : 'Save failed' }))
+      const errorMsg = e instanceof Error ? e.message : 'Save failed'
+      // Check if it's a database configuration error
+      if (errorMsg.includes('Database not configured') || errorMsg.includes('503')) {
+        setSaveModal((m) => ({ 
+          ...m, 
+          saving: false, 
+          saveError: 'Save feature requires database setup. For now, you can take a screenshot or export your strategy manually.' 
+        }))
+      } else {
+        setSaveModal((m) => ({ ...m, saving: false, saveError: errorMsg }))
+      }
     }
   }
 
@@ -597,6 +675,18 @@ export default function StrategyBuilder() {
         onNameChange={(v) => setSaveModal((m) => ({ ...m, name: v }))}
         onSave={confirmSave}
         onClose={() => setSaveModal({ open: false, name: '', saving: false, saveError: null })}
+      />
+
+      <StrategyModal
+        isOpen={strategyModal.open}
+        strategy={strategyModal.strategy}
+        instrument={instrument}
+        spot={spot || 0}
+        selectedExpiry={selectedExpiry}
+        expiries={allExpiries}
+        chainData={chainData}
+        onLoad={handleLoadStrategy}
+        onClose={() => setStrategyModal({ open: false, strategy: null })}
       />
 
       {/* Error banner */}
@@ -634,18 +724,30 @@ export default function StrategyBuilder() {
           overflowY: 'auto',
         }}>
           <InstrumentSelector active={instrument} onChange={handleInstrumentChange} />
-          <SpotCard instrument={instrument} spotData={spotData} loading={isLoading.spot} />
+          <SpotCard instrument={instrument} spotData={spotData} loading={isLoading.spot} hasLoaded={hasLoadedOnce.spot} />
           <ExpirySelect
             expiry={selectedExpiry} expiries={allExpiries}
             onChange={setExpiry} loading={isLoading.expiries}
           />
 
           {/* Tabs */}
-          <div style={{ display: 'flex', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
+          <div style={{ 
+            display: 'flex', 
+            borderRadius: 6, 
+            overflow: 'hidden', 
+            border: '1px solid var(--border)',
+            minHeight: 32,
+            flexShrink: 0,
+          }}>
             {TABS.map(({ key, label }) => (
               <button key={key} onClick={() => setActiveTab(key)} style={{
-                flex: 1, padding: '7px 0', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
-                border: 'none', transition: 'all 0.12s',
+                flex: 1, 
+                padding: '7px 0', 
+                fontSize: '0.78rem', 
+                fontWeight: 600, 
+                cursor: 'pointer',
+                border: 'none', 
+                transition: 'all 0.12s',
                 background: activeTab === key ? 'var(--accent)' : 'var(--surface2)',
                 color:      activeTab === key ? '#0a0c10'       : 'var(--text3)',
               }}>{label}</button>
@@ -731,10 +833,11 @@ export default function StrategyBuilder() {
             flex-direction: column-reverse !important;
           }
           .strategy-left-panel {
-            max-height: 50vh;
+            max-height: 60vh;
+            overflow-y: auto;
           }
           .strategy-right-panel {
-            min-height: 50vh;
+            min-height: 40vh;
           }
         }
       `}</style>

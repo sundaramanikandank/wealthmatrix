@@ -240,61 +240,159 @@ function calcMaxPain(chain: Record<number, ChainRow>): number | null {
   return maxPainStrike
 }
 
+// Generate mock option chain for testing during off-market hours
+function generateMockOptionChain(symbol: IndexSymbol, expiry: string): OptionChainResult {
+  const spot = symbol === 'NIFTY' ? 23500 : 51000
+  const strikeInterval = symbol === 'NIFTY' ? 50 : 100
+  const numStrikes = 41 // 20 above, 20 below ATM
+  
+  const atmStrike = Math.round(spot / strikeInterval) * strikeInterval
+  const chain: Record<number, ChainRow> = {}
+  
+  for (let i = -20; i <= 20; i++) {
+    const strike = atmStrike + (i * strikeInterval)
+    const distanceFromATM = Math.abs(strike - spot)
+    
+    // Mock IV (higher for OTM)
+    const baseIV = 15 + (distanceFromATM / spot) * 50
+    const ceIV = baseIV + Math.random() * 5
+    const peIV = baseIV + Math.random() * 5
+    
+    // Mock OI (higher near ATM)
+    const oiFactor = Math.max(0, 1 - (distanceFromATM / (spot * 0.1)))
+    const ceOI = Math.floor((50000 + Math.random() * 100000) * oiFactor)
+    const peOI = Math.floor((50000 + Math.random() * 100000) * oiFactor)
+    
+    // Mock prices using Black-Scholes approximation
+    const ceLTP = Math.max(0.05, (spot - strike) + (ceIV * Math.sqrt(30) / 100))
+    const peLTP = Math.max(0.05, (strike - spot) + (peIV * Math.sqrt(30) / 100))
+    
+    chain[strike] = {
+      ce: {
+        strikePrice: strike,
+        expiryDate: expiry,
+        underlying: symbol,
+        identifier: `${symbol}${expiry}${strike}CE`,
+        openInterest: ceOI,
+        changeinOpenInterest: Math.floor(Math.random() * 10000 - 5000),
+        pchangeinOpenInterest: Math.random() * 20 - 10,
+        totalTradedVolume: Math.floor(ceOI * 0.3),
+        impliedVolatility: ceIV,
+        lastPrice: ceLTP,
+        change: Math.random() * 10 - 5,
+        pChange: Math.random() * 10 - 5,
+        totalBuyQuantity: Math.floor(Math.random() * 100000),
+        totalSellQuantity: Math.floor(Math.random() * 100000),
+        bidQty: Math.floor(Math.random() * 1000),
+        bidprice: ceLTP - 0.5,
+        askQty: Math.floor(Math.random() * 1000),
+        askPrice: ceLTP + 0.5,
+        underlyingValue: spot,
+      } as OptionsDetails,
+      pe: {
+        strikePrice: strike,
+        expiryDate: expiry,
+        underlying: symbol,
+        identifier: `${symbol}${expiry}${strike}PE`,
+        openInterest: peOI,
+        changeinOpenInterest: Math.floor(Math.random() * 10000 - 5000),
+        pchangeinOpenInterest: Math.random() * 20 - 10,
+        totalTradedVolume: Math.floor(peOI * 0.3),
+        impliedVolatility: peIV,
+        lastPrice: peLTP,
+        change: Math.random() * 10 - 5,
+        pChange: Math.random() * 10 - 5,
+        totalBuyQuantity: Math.floor(Math.random() * 100000),
+        totalSellQuantity: Math.floor(Math.random() * 100000),
+        bidQty: Math.floor(Math.random() * 1000),
+        bidprice: peLTP - 0.5,
+        askQty: Math.floor(Math.random() * 1000),
+        askPrice: peLTP + 0.5,
+        underlyingValue: spot,
+      } as OptionsDetails,
+    }
+  }
+  
+  const totalCeOI = Object.values(chain).reduce((sum, row) => sum + (row.ce?.openInterest || 0), 0)
+  const totalPeOI = Object.values(chain).reduce((sum, row) => sum + (row.pe?.openInterest || 0), 0)
+  const pcr = totalCeOI > 0 ? parseFloat((totalPeOI / totalCeOI).toFixed(4)) : null
+  
+  console.log(`[NSE] Generated mock option chain for ${symbol} ${expiry} (market closed)`)
+  
+  return {
+    symbol,
+    expiry,
+    spot,
+    futures: null,
+    chain,
+    pcr,
+    maxPain: calcMaxPain(chain),
+    atmStrike,
+    timestamp: new Date().toISOString(),
+    stale: true,
+  }
+}
+
 export async function getOptionChain(
   symbol: IndexSymbol,
   expiry: string,
 ): Promise<OptionChainResult> {
-  return cachedFetch(`optchain:${symbol}:${expiry}`, async () => {
-    const nseExpiry = isoToNse(expiry)
-    console.log(`[NSE] Fetching option chain: ${symbol} ${expiry} → NSE format: ${nseExpiry}`)
-    
-    const raw = await nse.getIndexOptionChain(symbol, nseExpiry)
+  try {
+    return await cachedFetch(`optchain:${symbol}:${expiry}`, async () => {
+      const nseExpiry = isoToNse(expiry)
+      console.log(`[NSE] Fetching option chain: ${symbol} ${expiry} → NSE format: ${nseExpiry}`)
+      
+      const raw = await nse.getIndexOptionChain(symbol, nseExpiry)
 
-    const records = raw.records
-    const filtered = raw.filtered
+      const records = raw.records
+      const filtered = raw.filtered
 
-    console.log(`[NSE] Response: spot=${records?.underlyingValue}, filtered.data=${filtered?.data?.length ?? 0}, records.data=${records?.data?.length ?? 0}`)
+      console.log(`[NSE] Response: spot=${records?.underlyingValue}, filtered.data=${filtered?.data?.length ?? 0}, records.data=${records?.data?.length ?? 0}`)
 
-    const spot = records?.underlyingValue ?? 0
-    const timestamp = records?.timestamp ?? new Date().toISOString()
+      const spot = records?.underlyingValue ?? 0
+      const timestamp = records?.timestamp ?? new Date().toISOString()
 
-    // filtered.data is scoped to the requested expiry; fall back to records.data
-    const data = filtered?.data ?? records?.data ?? []
-    
-    console.log(`[NSE] Using ${data.length} rows from ${filtered?.data ? 'filtered' : 'records'} data`)
+      // filtered.data is scoped to the requested expiry; fall back to records.data
+      const data = filtered?.data ?? records?.data ?? []
+      
+      console.log(`[NSE] Using ${data.length} rows from ${filtered?.data ? 'filtered' : 'records'} data`)
 
-    const chain: Record<number, ChainRow> = {}
-    for (const datum of data) {
-      chain[datum.strikePrice] = {
-        ce: datum.CE ?? null,
-        pe: datum.PE ?? null,
+      const chain: Record<number, ChainRow> = {}
+      for (const datum of data) {
+        chain[datum.strikePrice] = {
+          ce: datum.CE ?? null,
+          pe: datum.PE ?? null,
+        }
       }
-    }
 
-    const totalCeOI = filtered?.CE?.totOI ?? 0
-    const totalPeOI = filtered?.PE?.totOI ?? 0
-    const pcr = totalCeOI > 0 ? parseFloat((totalPeOI / totalCeOI).toFixed(4)) : null
+      const totalCeOI = filtered?.CE?.totOI ?? 0
+      const totalPeOI = filtered?.PE?.totOI ?? 0
+      const pcr = totalCeOI > 0 ? parseFloat((totalPeOI / totalCeOI).toFixed(4)) : null
 
-    const maxPain = calcMaxPain(chain)
+      const maxPain = calcMaxPain(chain)
 
-    const strikes = Object.keys(chain).map(Number)
-    const atmStrike =
-      strikes.length > 0
-        ? strikes.reduce((prev, curr) =>
-            Math.abs(curr - spot) < Math.abs(prev - spot) ? curr : prev,
-          )
-        : null
+      const strikes = Object.keys(chain).map(Number)
+      const atmStrike =
+        strikes.length > 0
+          ? strikes.reduce((prev, curr) =>
+              Math.abs(curr - spot) < Math.abs(prev - spot) ? curr : prev,
+            )
+          : null
 
-    return {
-      symbol,
-      expiry,
-      spot,
-      futures: null,
-      chain,
-      pcr,
-      maxPain,
-      atmStrike,
-      timestamp,
-    }
-  })
+      return {
+        symbol,
+        expiry,
+        spot,
+        futures: null,
+        chain,
+        pcr,
+        maxPain,
+        atmStrike,
+        timestamp,
+      }
+    })
+  } catch (err) {
+    console.warn(`[NSE] Failed to fetch option chain for ${symbol} ${expiry}, using mock data:`, err instanceof Error ? err.message : err)
+    return generateMockOptionChain(symbol, expiry)
+  }
 }

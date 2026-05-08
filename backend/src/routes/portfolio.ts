@@ -1,26 +1,14 @@
 import { Router } from 'express'
-import { createClient } from '@supabase/supabase-js'
 import { requireAuth } from '../middleware/auth'
+import { supabase } from '../lib/supabase'
 
 const router = Router()
-
-const SUPABASE_URL = process.env.SUPABASE_URL
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-const supabase =
-  SUPABASE_URL && SUPABASE_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_KEY)
-    : null
 
 router.use(requireAuth)
 
 // GET /api/portfolio/strategies - Get all saved strategies for user
 router.get('/strategies', async (_req, res) => {
   try {
-    if (!supabase) {
-      return res.status(503).json({ error: 'Database not configured' })
-    }
-
     const userId = res.locals.user?.id
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
@@ -44,10 +32,6 @@ router.get('/strategies', async (_req, res) => {
 // POST /api/portfolio/strategies - Create new strategy
 router.post('/strategies', async (req, res) => {
   try {
-    if (!supabase) {
-      return res.status(503).json({ error: 'Database not configured' })
-    }
-
     const userId = res.locals.user?.id
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
@@ -83,10 +67,6 @@ router.post('/strategies', async (req, res) => {
 // PUT /api/portfolio/strategies/:id - Update strategy name/notes
 router.put('/strategies/:id', async (req, res) => {
   try {
-    if (!supabase) {
-      return res.status(503).json({ error: 'Database not configured' })
-    }
-
     const userId = res.locals.user?.id
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
@@ -123,10 +103,6 @@ router.put('/strategies/:id', async (req, res) => {
 // DELETE /api/portfolio/strategies/:id - Delete strategy
 router.delete('/strategies/:id', async (req, res) => {
   try {
-    if (!supabase) {
-      return res.status(503).json({ error: 'Database not configured' })
-    }
-
     const userId = res.locals.user?.id
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
@@ -152,10 +128,6 @@ router.delete('/strategies/:id', async (req, res) => {
 // GET /api/portfolio/paper - Get paper positions
 router.get('/paper', async (req, res) => {
   try {
-    if (!supabase) {
-      return res.status(503).json({ error: 'Database not configured' })
-    }
-
     const userId = res.locals.user?.id
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
@@ -188,10 +160,6 @@ router.get('/paper', async (req, res) => {
 // POST /api/portfolio/paper - Create paper position
 router.post('/paper', async (req, res) => {
   try {
-    if (!supabase) {
-      return res.status(503).json({ error: 'Database not configured' })
-    }
-
     const userId = res.locals.user?.id
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
@@ -228,10 +196,6 @@ router.post('/paper', async (req, res) => {
 // PUT /api/portfolio/paper/:id - Update paper position (close position)
 router.put('/paper/:id', async (req, res) => {
   try {
-    if (!supabase) {
-      return res.status(503).json({ error: 'Database not configured' })
-    }
-
     const userId = res.locals.user?.id
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })
@@ -270,10 +234,6 @@ router.put('/paper/:id', async (req, res) => {
 // DELETE /api/portfolio/paper/:id - Delete paper position
 router.delete('/paper/:id', async (req, res) => {
   try {
-    if (!supabase) {
-      return res.status(503).json({ error: 'Database not configured' })
-    }
-
     const userId = res.locals.user?.id
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' })

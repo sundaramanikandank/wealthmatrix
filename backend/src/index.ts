@@ -1,10 +1,9 @@
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 import marketRouter from './routes/market'
 import portfolioRouter from './routes/portfolio'
-
-dotenv.config()
+import { supabase } from './lib/supabase'
 
 const app = express()
 const PORT = process.env.PORT ?? 4000
@@ -36,6 +35,24 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/market', marketRouter)
 app.use('/api/portfolio', portfolioRouter)
 
+async function checkDatabaseConnection() {
+  try {
+    const { error } = await supabase
+      .from('strategies')
+      .select('count')
+      .limit(1)
+    
+    if (error) {
+      console.error('❌ Supabase connection failed:', error.message)
+    } else {
+      console.log('✅ Supabase connected successfully')
+    }
+  } catch (err) {
+    console.error('❌ Supabase init error:', err)
+  }
+}
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
+  checkDatabaseConnection()
 })

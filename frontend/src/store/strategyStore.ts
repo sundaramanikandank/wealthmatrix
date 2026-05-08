@@ -61,6 +61,7 @@ interface StrategyState {
   chainData: ChainData | null
   legs: StoreLeg[]
   isLoading: { spot: boolean; expiries: boolean; chain: boolean }
+  hasLoadedOnce: { spot: boolean; expiries: boolean; chain: boolean }
   error: string | null
   lastUpdated: number | null
 
@@ -83,6 +84,7 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
   chainData:      null,
   legs:           [],
   isLoading:      { spot: false, expiries: false, chain: false },
+  hasLoadedOnce:  { spot: false, expiries: false, chain: false },
   error:          null,
   lastUpdated:    null,
 
@@ -97,7 +99,7 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
   },
 
   addLeg: (leg) => set((s) => ({
-    legs: [...s.legs, { ...leg, id: Date.now() }],
+    legs: [...s.legs, { ...leg, id: Date.now() + Math.random() * 1000000 }],
   })),
 
   removeLeg: (id) => set((s) => ({
@@ -107,11 +109,14 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
   clearLegs: () => set({ legs: [] }),
 
   setLegs: (legs) => set({
-    legs: legs.map((l, i) => ({ ...l, id: Date.now() + i })),
+    legs: legs.map((l, i) => ({ ...l, id: Date.now() + i * 1000 + Math.random() * 100 })),
   }),
 
   fetchSpotAndExpiries: async (symbol) => {
-    set((s) => ({ isLoading: { ...s.isLoading, spot: true, expiries: true }, error: null }))
+    set((s) => ({ 
+      isLoading: { ...s.isLoading, spot: true, expiries: true }, 
+      error: null 
+    }))
     try {
       const [spotData, expiriesData] = await Promise.all([
         fetchSpot(symbol),
@@ -123,6 +128,7 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
         expiriesData,
         selectedExpiry: s.selectedExpiry || firstExpiry,
         isLoading: { ...s.isLoading, spot: false, expiries: false },
+        hasLoadedOnce: { ...s.hasLoadedOnce, spot: true, expiries: true },
         lastUpdated: Date.now(),
       }))
       const expiry = get().selectedExpiry || firstExpiry
@@ -130,6 +136,7 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
     } catch (err) {
       set((s) => ({
         isLoading: { ...s.isLoading, spot: false, expiries: false },
+        hasLoadedOnce: { ...s.hasLoadedOnce, spot: true, expiries: true },
         error: err instanceof Error ? err.message : 'Failed to fetch spot/expiries',
       }))
     }
@@ -143,11 +150,13 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
       set((s) => ({
         chainData,
         isLoading: { ...s.isLoading, chain: false },
+        hasLoadedOnce: { ...s.hasLoadedOnce, chain: true },
         lastUpdated: Date.now(),
       }))
     } catch (err) {
       set((s) => ({
         isLoading: { ...s.isLoading, chain: false },
+        hasLoadedOnce: { ...s.hasLoadedOnce, chain: true },
         error: err instanceof Error ? err.message : 'Failed to fetch option chain',
       }))
     }
