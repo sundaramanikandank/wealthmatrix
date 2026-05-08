@@ -10,7 +10,7 @@ import StrategyModal                from '../components/StrategyModal'
 import { calcGreeks }               from '../utils/greeks'
 import { calcPayoffRange, calcBreakevens, calcMaxProfit, calcMaxLoss } from '../utils/payoff'
 import type { Leg as PayoffLeg }    from '../utils/payoff'
-import { getStrategiesByCategory, calculateATM, type Strategy } from '../data/strategies'
+import { getStrategiesByCategory, type Strategy } from '../data/strategies'
 
 type ActiveTab = 'build' | 'strategies' | 'chain'
 
@@ -65,64 +65,6 @@ function fmtPnl(v: number): string {
 
 // ─── Preset strategy templates ────────────────────────────────────────────────
 
-type LTPGetter = (strike: number, type: 'CE' | 'PE') => number
-type LegTemplate = Omit<StoreLeg, 'id'>
-
-const STRATEGY_TEMPLATES: Record<string, (atm: number, step: number, exp: string, ltp: LTPGetter) => LegTemplate[]> = {
-  'Long Call':      (a, _s, e, g) => [{ type:'CE', side:'BUY',  strike:a,      lots:1, ltp:g(a,'CE'),      expiry:e, iv:0.15 }],
-  'Long Put':       (a, _s, e, g) => [{ type:'PE', side:'BUY',  strike:a,      lots:1, ltp:g(a,'PE'),      expiry:e, iv:0.15 }],
-  'Short Call':     (a, _s, e, g) => [{ type:'CE', side:'SELL', strike:a,      lots:1, ltp:g(a,'CE'),      expiry:e, iv:0.15 }],
-  'Short Put':      (a, _s, e, g) => [{ type:'PE', side:'SELL', strike:a,      lots:1, ltp:g(a,'PE'),      expiry:e, iv:0.15 }],
-  'Covered Call':   (a,  s, e, g) => [
-    { type:'CE', side:'BUY',  strike:a,    lots:1, ltp:g(a,'CE'),      expiry:e, iv:0.15 },
-    { type:'CE', side:'SELL', strike:a+s,  lots:1, ltp:g(a+s,'CE'),    expiry:e, iv:0.15 },
-  ],
-  'Protective Put': (a,  s, e, g) => [
-    { type:'CE', side:'BUY',  strike:a,    lots:1, ltp:g(a,'CE'),      expiry:e, iv:0.15 },
-    { type:'PE', side:'BUY',  strike:a-s,  lots:1, ltp:g(a-s,'PE'),   expiry:e, iv:0.15 },
-  ],
-  'Bull Call Sprd': (a,  s, e, g) => [
-    { type:'CE', side:'BUY',  strike:a,    lots:1, ltp:g(a,'CE'),      expiry:e, iv:0.15 },
-    { type:'CE', side:'SELL', strike:a+s,  lots:1, ltp:g(a+s,'CE'),   expiry:e, iv:0.15 },
-  ],
-  'Bear Put Sprd':  (a,  s, e, g) => [
-    { type:'PE', side:'BUY',  strike:a,    lots:1, ltp:g(a,'PE'),      expiry:e, iv:0.15 },
-    { type:'PE', side:'SELL', strike:a-s,  lots:1, ltp:g(a-s,'PE'),   expiry:e, iv:0.15 },
-  ],
-  'Bull Put Sprd':  (a,  s, e, g) => [
-    { type:'PE', side:'SELL', strike:a,    lots:1, ltp:g(a,'PE'),      expiry:e, iv:0.15 },
-    { type:'PE', side:'BUY',  strike:a-s,  lots:1, ltp:g(a-s,'PE'),   expiry:e, iv:0.15 },
-  ],
-  'Bear Call Sprd': (a,  s, e, g) => [
-    { type:'CE', side:'SELL', strike:a,    lots:1, ltp:g(a,'CE'),      expiry:e, iv:0.15 },
-    { type:'CE', side:'BUY',  strike:a+s,  lots:1, ltp:g(a+s,'CE'),   expiry:e, iv:0.15 },
-  ],
-  'Straddle':       (a, _s, e, g) => [
-    { type:'CE', side:'BUY', strike:a, lots:1, ltp:g(a,'CE'), expiry:e, iv:0.15 },
-    { type:'PE', side:'BUY', strike:a, lots:1, ltp:g(a,'PE'), expiry:e, iv:0.15 },
-  ],
-  'Strangle':       (a,  s, e, g) => [
-    { type:'CE', side:'BUY', strike:a+s,  lots:1, ltp:g(a+s,'CE'),   expiry:e, iv:0.15 },
-    { type:'PE', side:'BUY', strike:a-s,  lots:1, ltp:g(a-s,'PE'),  expiry:e, iv:0.15 },
-  ],
-  'Iron Condor':    (a,  s, e, g) => [
-    { type:'CE', side:'SELL', strike:a+s,    lots:1, ltp:g(a+s,'CE'),    expiry:e, iv:0.15 },
-    { type:'CE', side:'BUY',  strike:a+s*2,  lots:1, ltp:g(a+s*2,'CE'), expiry:e, iv:0.15 },
-    { type:'PE', side:'SELL', strike:a-s,    lots:1, ltp:g(a-s,'PE'),    expiry:e, iv:0.15 },
-    { type:'PE', side:'BUY',  strike:a-s*2,  lots:1, ltp:g(a-s*2,'PE'), expiry:e, iv:0.15 },
-  ],
-  'Iron Butterfly': (a,  s, e, g) => [
-    { type:'CE', side:'SELL', strike:a,    lots:1, ltp:g(a,'CE'),      expiry:e, iv:0.15 },
-    { type:'CE', side:'BUY',  strike:a+s,  lots:1, ltp:g(a+s,'CE'),   expiry:e, iv:0.15 },
-    { type:'PE', side:'SELL', strike:a,    lots:1, ltp:g(a,'PE'),      expiry:e, iv:0.15 },
-    { type:'PE', side:'BUY',  strike:a-s,  lots:1, ltp:g(a-s,'PE'),  expiry:e, iv:0.15 },
-  ],
-  'Synthetic Long': (a, _s, e, g) => [
-    { type:'CE', side:'BUY',  strike:a, lots:1, ltp:g(a,'CE'), expiry:e, iv:0.15 },
-    { type:'PE', side:'SELL', strike:a, lots:1, ltp:g(a,'PE'), expiry:e, iv:0.15 },
-  ],
-}
-
 // ─── Shared micro-styles ──────────────────────────────────────────────────────
 
 const card: React.CSSProperties = {
@@ -145,8 +87,6 @@ const stepBtn: React.CSSProperties = {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-const PRESET_NAMES = Object.keys(STRATEGY_TEMPLATES)
 
 function InstrumentSelector({ active, onChange }: { active: Instrument; onChange: (v: Instrument) => void }) {
   return (
