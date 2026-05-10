@@ -131,7 +131,7 @@ router.delete('/columns/:id', async (req: Request, res: Response) => {
 router.delete('/columns/:id/permanent', async (req: Request, res: Response) => {
   try {
     const userId = res.locals.user?.id
-    const { id } = req.params
+    const id = String(req.params.id)
 
     // Remove column value from every snapshot row_data
     const { data: snapshots } = await supabase
