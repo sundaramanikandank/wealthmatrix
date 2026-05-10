@@ -58,6 +58,7 @@ export default function Navbar() {
           zIndex: 100,
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
           gap: '1rem',
           padding: '0 1rem',
           height: '56px',
@@ -79,7 +80,7 @@ export default function Navbar() {
             textDecoration: 'none',
           }}
         >
-          StratOS
+          Wealth Matrix
         </Link>
 
         {/* Desktop Nav links */}
@@ -125,13 +126,18 @@ export default function Navbar() {
           className="mobile-menu-btn"
           style={{
             display: 'none',
-            padding: '8px',
+            padding: 0,
             background: 'none',
             border: 'none',
             color: 'var(--text)',
             cursor: 'pointer',
-            fontSize: '1.5rem',
+            fontSize: '2rem',
             lineHeight: 1,
+            width: '48px',
+            height: '48px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
           }}
           aria-label="Toggle menu"
         >
@@ -140,6 +146,7 @@ export default function Navbar() {
 
       {/* Right side: auth + market status + clock */}
       <div
+        className="desktop-auth-section"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -198,7 +205,7 @@ export default function Navbar() {
         )}
 
         {/* Market status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <div className="mobile-hide" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <span
             style={{
               width: '8px',
@@ -264,12 +271,53 @@ export default function Navbar() {
                     textDecoration: 'none',
                     color: isActive ? 'var(--accent)' : 'var(--text)',
                     background: isActive ? 'rgba(0,212,170,0.08)' : 'transparent',
+                    borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
                   })}
                 >
                   {label}
                 </NavLink>
               </li>
             ))}
+            {/* Auth in mobile menu */}
+            <li style={{ borderTop: '1px solid var(--border)', marginTop: '8px', paddingTop: '8px' }}>
+              {user ? (
+                <button
+                  onClick={() => { logout(); setMobileMenuOpen(false); }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '12px 16px',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--red)',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Logout ({user.email})
+                </button>
+              ) : (
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    textDecoration: 'none',
+                    color: 'var(--accent)',
+                    background: 'rgba(0,212,170,0.08)',
+                  }}
+                >
+                  Login
+                </Link>
+              )}
+            </li>
           </ul>
         </div>
       )}
@@ -281,9 +329,12 @@ export default function Navbar() {
             display: none !important;
           }
           .mobile-menu-btn {
-            display: block !important;
+            display: flex !important;
           }
           .mobile-hide {
+            display: none !important;
+          }
+          .desktop-auth-section {
             display: none !important;
           }
         }

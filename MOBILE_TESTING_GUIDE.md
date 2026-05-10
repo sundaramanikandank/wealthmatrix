@@ -49,7 +49,7 @@
 ### 2. Strategy Builder
 
 #### Desktop (>768px)
-- ✅ Left panel (340px) on left side
+- ✅ Left panel (450px) on left side
 - ✅ Chart panel on right side
 - ✅ Both panels visible simultaneously
 - ✅ Vertical split layout

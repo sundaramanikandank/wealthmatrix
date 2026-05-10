@@ -79,7 +79,7 @@
 
   /* Tighter spacing */
   [style*="padding"] {
-    padding: 12px !important;
+    padding-top: 56px;
   }
 
   /* Stack buttons vertically */
@@ -100,7 +100,6 @@
 @media (hover: none) and (pointer: coarse) {
   /* Increase tap targets */
   a, button, [role="button"] {
-    min-height: 44px;
     min-width: 44px;
   }
 

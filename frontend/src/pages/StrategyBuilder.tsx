@@ -309,10 +309,31 @@ function StrategiesGrid({ onSelect }: { onSelect: (strategy: Strategy) => void }
   )
 }
 
-function PositionRow({ leg, onRemove }: { leg: StoreLeg; onRemove: (id: number) => void }) {
+function PositionRow({ leg, onRemove, onToggle }: { leg: StoreLeg; onRemove: (id: number) => void; onToggle: (id: number) => void }) {
   const isBuy = leg.side === 'BUY'
+  const isEnabled = leg.enabled !== false
   return (
-    <div style={{ ...card, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+    <div style={{ 
+      ...card, 
+      padding: '8px 10px', 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: 8, 
+      marginBottom: 6,
+      opacity: isEnabled ? 1 : 0.5,
+    }}>
+      <input 
+        type="checkbox" 
+        checked={isEnabled}
+        onChange={() => onToggle(leg.id)}
+        style={{ 
+          cursor: 'pointer', 
+          width: 16, 
+          height: 16, 
+          flexShrink: 0,
+          accentColor: 'var(--green)',
+        }}
+      />
       <span style={{
         padding: '2px 7px', borderRadius: 4, fontSize: '0.68rem', fontWeight: 700,
         background: isBuy ? 'rgba(0,212,170,0.15)' : 'rgba(255,77,106,0.15)',
@@ -351,7 +372,7 @@ function SummaryBar({ maxProfit, maxLoss, breakevens, netPremium, hasLegs }: Sum
   return (
     <div style={{ display: 'flex', gap: 1, background: 'var(--border)', borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
       {items.map(({ label, value, color }) => (
-        <div key={label} style={{ flex: 1, background: 'var(--surface)', padding: '10px 12px', textAlign: 'center' }}>
+        <div key={label} style={{ background: 'var(--surface)', padding: '10px 12px', textAlign: 'center' }}>
           <div style={{ fontSize: '0.65rem', color: 'var(--text3)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 3 }}>
             {label}
           </div>
@@ -429,11 +450,11 @@ export default function StrategyBuilder() {
   const { user, session } = useAuthStore()
   const {
     instrument, spotData, expiriesData, selectedExpiry, chainData, legs,
-    isLoading, hasLoadedOnce, error, clearError, setInstrument, setExpiry, addLeg, removeLeg, clearLegs, setLegs,
+    isLoading, hasLoadedOnce, error, clearError, setInstrument, setExpiry, addLeg, removeLeg, clearLegs, setLegs, toggleLegEnabled,
     fetchSpotAndExpiries,
   } = useStrategyStore()
 
-  const [activeTab,  setActiveTab]  = useState<ActiveTab>('build')
+  const [activeTab,  setActiveTab]  = useState<ActiveTab>('strategies')
   const [formType,   setFormType]   = useState<OptionType>('CE')
   const [formStrike, setFormStrike] = useState(22000)
   const [formLots,   setFormLots]   = useState(1)
@@ -500,7 +521,7 @@ export default function StrategyBuilder() {
   ])).sort()
 
   const payoffLegs = useMemo<PayoffLeg[]>(() =>
-    legs.filter((l) => l.type !== 'FUT').map((l) => ({
+    legs.filter((l) => l.type !== 'FUT' && l.enabled !== false).map((l) => ({
       type: l.type as 'CE' | 'PE', action: l.side, strike: l.strike,
       premium: l.ltp, lots: l.lots,
     })), [legs])
@@ -580,7 +601,7 @@ export default function StrategyBuilder() {
       await saveStrategy({ 
         name: saveModal.name.trim(), 
         instrument, 
-        legs: legs.map(l => ({ type: l.type, strike: l.strike, expiry: l.expiry, side: l.side, lots: l.lots, ltp: l.ltp })),
+        legs: legs.filter(l => l.enabled !== false).map(l => ({ type: l.type, strike: l.strike, expiry: l.expiry, side: l.side, lots: l.lots, ltp: l.ltp })),
         notes: null 
       }, session.access_token)
       setSaveModal({ open: false, name: '', saving: false, saveError: null })
@@ -727,7 +748,7 @@ export default function StrategyBuilder() {
                 }}>Clear all</button>
               </div>
               <div style={{ overflowY: 'auto', maxHeight: 220 }}>
-                {legs.map((leg) => <PositionRow key={leg.id} leg={leg} onRemove={removeLeg} />)}
+                {legs.map((leg) => <PositionRow key={leg.id} leg={leg} onRemove={removeLeg} onToggle={toggleLegEnabled} />)}
               </div>
             </div>
           )}
@@ -761,7 +782,7 @@ export default function StrategyBuilder() {
             flex-direction: row !important;
           }
           .strategy-left-panel {
-            width: 340px;
+            width: 450px;
             flex-shrink: 0;
           }
           .strategy-right-panel {
@@ -770,7 +791,8 @@ export default function StrategyBuilder() {
         }
         @media (max-width: 767px) {
           .strategy-builder-layout {
-            flex-direction: column-reverse !important;
+            flex-direction: column !important;
+            padding-top: 56px;
           }
           .strategy-left-panel {
             max-height: 60vh;

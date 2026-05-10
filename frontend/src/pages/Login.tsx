@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -6,11 +6,18 @@ import { useAuthStore } from '../store/authStore'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { initialize } = useAuthStore()
+  const { initialize, session } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (session) {
+      navigate('/strategy-builder')
+    }
+  }, [session, navigate])
 
   function validateEmail(email: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)

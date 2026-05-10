@@ -16,6 +16,7 @@ export interface StoreLeg {
   ltp: number
   side: Side
   iv?: number
+  enabled?: boolean
 }
 
 export interface SpotData {
@@ -71,6 +72,7 @@ interface StrategyState {
   removeLeg: (id: number) => void
   clearLegs: () => void
   setLegs: (legs: Omit<StoreLeg, 'id'>[]) => void
+  toggleLegEnabled: (id: number) => void
   fetchSpotAndExpiries: (symbol: Instrument) => Promise<void>
   fetchChain: (symbol: Instrument, expiry: string) => Promise<void>
   clearError: () => void
@@ -99,7 +101,7 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
   },
 
   addLeg: (leg) => set((s) => ({
-    legs: [...s.legs, { ...leg, id: Date.now() + Math.random() * 1000000 }],
+    legs: [...s.legs, { ...leg, id: Date.now() + Math.random() * 1000000, enabled: leg.enabled ?? true }],
   })),
 
   removeLeg: (id) => set((s) => ({
@@ -109,8 +111,12 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
   clearLegs: () => set({ legs: [] }),
 
   setLegs: (legs) => set({
-    legs: legs.map((l, i) => ({ ...l, id: Date.now() + i * 1000 + Math.random() * 100 })),
+    legs: legs.map((l, i) => ({ ...l, id: Date.now() + i * 1000 + Math.random() * 100, enabled: l.enabled ?? true })),
   }),
+
+  toggleLegEnabled: (id) => set((s) => ({
+    legs: s.legs.map((l) => l.id === id ? { ...l, enabled: !l.enabled } : l),
+  })),
 
   fetchSpotAndExpiries: async (symbol) => {
     set((s) => ({ 
