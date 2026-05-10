@@ -77,11 +77,6 @@
     font-size: 1.1rem !important;
   }
 
-  /* Tighter spacing */
-  [style*="padding"] {
-    padding-top: 56px;
-  }
-
   /* Stack buttons vertically */
   button + button {
     margin-top: 8px;
