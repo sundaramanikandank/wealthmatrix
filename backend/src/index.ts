@@ -3,6 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import marketRouter from './routes/market'
 import portfolioRouter from './routes/portfolio'
+import wealthRouter from './routes/wealth'
 import { supabase } from './lib/supabase'
 
 const app = express()
@@ -34,6 +35,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/market', marketRouter)
 app.use('/api/portfolio', portfolioRouter)
+app.use('/api/wealth', wealthRouter)
 
 async function checkDatabaseConnection() {
   try {

@@ -11,6 +11,8 @@ import Dashboard from './pages/Dashboard'
 import Portfolio from './pages/Portfolio'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import WealthOverview from './pages/WealthOverview'
+import WealthSnapshots from './pages/WealthSnapshots'
 
 function App() {
   return (
@@ -51,6 +53,8 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/wealth" element={<WealthOverview />} />
+            <Route path="/wealth/snapshots" element={<WealthSnapshots />} />
           </Route>
         </Routes>
       </main>

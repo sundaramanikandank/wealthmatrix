@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { NavLink, Link } from 'react-router-dom'
+import { useEffect, useState, useRef } from 'react'
+import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 
 const NAV_LINKS = [
@@ -9,6 +9,11 @@ const NAV_LINKS = [
   { to: '/iv-charts', label: 'IV Charts' },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/portfolio', label: 'Portfolio', authRequired: true },
+]
+
+const WEALTH_LINKS = [
+  { to: '/wealth', label: 'Wealth Overview' },
+  { to: '/wealth/snapshots', label: 'Wealth Grid' },
 ]
 
 function getISTTime(): Date {
@@ -38,17 +43,66 @@ function formatTime(ist: Date): string {
 export default function Navbar() {
   const [time, setTime] = useState<Date>(getISTTime())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [wealthDropdownOpen, setWealthDropdownOpen] = useState(false)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
+  const wealthButtonRef = useRef<HTMLButtonElement>(null)
   const { user, logout } = useAuthStore()
+  const location = useLocation()
 
   useEffect(() => {
     const id = setInterval(() => setTime(getISTTime()), 1000)
     return () => clearInterval(id)
   }, [])
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (wealthDropdownOpen && wealthButtonRef.current && !wealthButtonRef.current.contains(event.target as Node)) {
+        const dropdown = document.querySelector('[data-wealth-dropdown]')
+        if (dropdown && !dropdown.contains(event.target as Node)) {
+          setWealthDropdownOpen(false)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [wealthDropdownOpen])
+
   const open = isMarketOpen(time)
+  const isWealthActive = location.pathname.startsWith('/wealth')
+
+  const handleWealthClick = () => {
+    if (!wealthDropdownOpen && wealthButtonRef.current) {
+      const rect = wealthButtonRef.current.getBoundingClientRect()
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left })
+    }
+    setWealthDropdownOpen(!wealthDropdownOpen)
+  }
 
   return (
     <>
+      <style>{`
+        @media (max-width: 768px) {
+          .desktop-nav {
+            display: none !important;
+          }
+          .mobile-menu-btn {
+            display: flex !important;
+          }
+          .desktop-auth-section {
+            display: none !important;
+          }
+        }
+        @media (min-width: 769px) {
+          .mobile-menu {
+            display: none !important;
+          }
+        }
+        .wealth-dropdown-link:hover {
+          background: rgba(0,212,170,0.12) !important;
+          color: var(--accent) !important;
+        }
+      `}</style>
       <nav
         style={{
           position: 'fixed',
@@ -93,7 +147,7 @@ export default function Navbar() {
             padding: 0,
             flex: 1,
             overflowX: 'auto',
-            overflowY: 'hidden',
+            overflowY: 'visible',
           }}
           className="desktop-nav"
         >
@@ -118,6 +172,72 @@ export default function Navbar() {
               </NavLink>
             </li>
           ))}
+          
+          {/* Wealth Dropdown */}
+          {user && (
+            <li style={{ position: 'static' }}>
+              <button
+                ref={wealthButtonRef}
+                onClick={handleWealthClick}
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  whiteSpace: 'nowrap',
+                  color: isWealthActive ? 'var(--accent)' : 'var(--text2)',
+                  background: isWealthActive ? 'rgba(0,212,170,0.08)' : 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                Wealth ▾
+              </button>
+              
+              {wealthDropdownOpen && (
+                <ul
+                  data-wealth-dropdown
+                  style={{
+                    position: 'fixed',
+                    top: `${dropdownPos.top}px`,
+                    left: `${dropdownPos.left}px`,
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    listStyle: 'none',
+                    padding: '8px',
+                    minWidth: '180px',
+                    zIndex: 99999,
+                  }}
+                >
+                  {WEALTH_LINKS.map(({ to, label }) => (
+                    <li key={to}>
+                      <NavLink
+                        to={to}
+                        onClick={() => setWealthDropdownOpen(false)}
+                        className="wealth-dropdown-link"
+                        style={{
+                          display: 'block',
+                          padding: '8px 12px',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          borderRadius: '6px',
+                          whiteSpace: 'nowrap',
+                          textDecoration: 'none',
+                          color: 'var(--text2)',
+                          background: 'transparent',
+                          transition: 'background 0.15s, color 0.15s',
+                        }}
+                      >
+                        {label}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          )}
         </ul>
 
         {/* Mobile hamburger button */}
@@ -258,6 +378,33 @@ export default function Navbar() {
         >
           <ul style={{ listStyle: 'none', margin: 0, padding: '8px' }}>
             {NAV_LINKS.filter(link => !link.authRequired || user).map(({ to, label }) => (
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={({ isActive }) => ({
+                    display: 'block',
+                    padding: '12px 16px',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    textDecoration: 'none',
+                    color: isActive ? 'var(--accent)' : 'var(--text)',
+                    background: isActive ? 'rgba(0,212,170,0.08)' : 'transparent',
+                    borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
+                  })}
+                >
+                  {label}
+                </NavLink>
+              </li>
+            ))}
+            {/* Wealth section divider */}
+            <li style={{ borderTop: '1px solid var(--border)', marginTop: '8px', paddingTop: '8px' }}>
+              <div style={{ padding: '8px 16px', fontSize: '0.7rem', color: 'var(--text3)', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700 }}>
+                WEALTH
+              </div>
+            </li>
+            {WEALTH_LINKS.map(({ to, label }) => (
               <li key={to}>
                 <NavLink
                   to={to}
